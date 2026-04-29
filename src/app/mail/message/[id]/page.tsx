@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getMessage } from "@/lib/gmail";
 import { getSession } from "@/lib/session";
 import { MessageContent } from "../_message-content";
-import AddToSpaceButton from "@/app/components/AddToSpaceButton";
+// import AddToSpaceButton from "@/app/components/AddToSpaceButton";
 import { readSpaces } from "@/lib/persist";
 
 type PageProps = {
@@ -87,7 +87,7 @@ export default async function MessagePage(props: PageProps) {
               ) : null}
             </div>
             <div className="flex-shrink-0">
-              <AddToSpaceButton emailId={id} spaces={spaces || []} />
+              {/* <AddToSpaceButton emailId={id} spaces={spaces || []} /> */}
             </div>
           </div>
 

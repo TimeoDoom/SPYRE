@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { getMessage } from "@/lib/gmail";
 import { readSpaces } from "@/lib/persist";
-import SpacesSidebar from "@/app/components/SpacesSidebar";
+// import SpacesSidebar from "@/app/components/SpacesSidebar";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -18,7 +18,7 @@ export default async function SpacePage({ params }: PageProps) {
   if (!space) {
     return (
       <div className="flex h-screen">
-        <SpacesSidebar initialSpaces={spaces || []} />
+        {/* <SpacesSidebar initialSpaces={spaces || []} /> */}
         <main className="flex-1 p-6">
           <div className="rounded-md border border-red-200 bg-red-50 p-4 text-red-900">
             Space non trouvé.
@@ -65,7 +65,7 @@ export default async function SpacePage({ params }: PageProps) {
 
   return (
     <div className="flex h-screen">
-      <SpacesSidebar initialSpaces={spaces || []} />
+      {/* <SpacesSidebar initialSpaces={spaces || []} /> */}
 
       <main className="flex-1 overflow-auto">
         <div className="mx-auto max-w-5xl p-6">
