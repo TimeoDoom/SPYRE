@@ -323,22 +323,27 @@ export async function clearMailSettings(
 }
 
 export async function readUiSettings(session: IronSession<SessionData>) {
-  const userId = await ensureDbUser(session);
-  if (!prisma || !userId) return session.ui ?? {};
+  try {
+    const userId = await ensureDbUser(session);
+    if (!prisma || !userId) return session.ui ?? {};
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  const dbBackground =
-    user?.uiBackground === null
-      ? undefined
-      : ((user?.uiBackground as any) ?? undefined);
-  const ui = {
-    theme: (user?.uiTheme as any) ?? session.ui?.theme,
-    texture: (user?.uiTexture as any) ?? session.ui?.texture,
-    background: dbBackground ?? session.ui?.background,
-    language: (user?.uiLanguage as any) ?? session.ui?.language,
-  };
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const dbBackground =
+      user?.uiBackground === null
+        ? undefined
+        : ((user?.uiBackground as any) ?? undefined);
+    const ui = {
+      theme: (user?.uiTheme as any) ?? session.ui?.theme,
+      texture: (user?.uiTexture as any) ?? session.ui?.texture,
+      background: dbBackground ?? session.ui?.background,
+      language: (user?.uiLanguage as any) ?? session.ui?.language,
+    };
 
-  return ui;
+    return ui;
+  } catch (error) {
+    console.error("[readUiSettings] falling back to session UI", error);
+    return session.ui ?? {};
+  }
 }
 
 export async function writeUiSettings(
@@ -550,47 +555,51 @@ export async function deleteContact(
 }
 
 export async function ensureDefaultSpaceDb(session: IronSession<SessionData>) {
-  const userId = await ensureDbUser(session);
-  if (!prisma || !userId) return;
+  try {
+    const userId = await ensureDbUser(session);
+    if (!prisma || !userId) return;
 
-  const principalId = "principal";
-  const exists = await prisma.space.findFirst({
-    where: { userId, id: principalId },
-    select: { id: true },
-  });
-  if (exists) return;
+    const principalId = "principal";
+    const exists = await prisma.space.findFirst({
+      where: { userId, id: principalId },
+      select: { id: true },
+    });
+    if (exists) return;
 
-  await prisma.space.create({
-    data: {
-      id: principalId,
-      userId,
-      name: "Principal",
-      icon: "📥",
-      color: "#3B82F6",
-      bgColor: "#F0F4FF",
-      textColor: "#1E293B",
-      mailFontSize: 14,
-      createdAt: new Date(),
-    },
-  });
-
-  // Initialize principal mailboxes in JSON state if absent.
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (user?.spaceEmails == null) {
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.space.create({
       data: {
-        spaceEmails: {
-          principal: {
-            INBOX: [],
-            SENT: [],
-            DRAFTS: [],
-            "[Gmail]/Spam": [],
-            "[Gmail]/Trash": [],
-          },
-        } as any,
+        id: principalId,
+        userId,
+        name: "Principal",
+        icon: "📥",
+        color: "#3B82F6",
+        bgColor: "#F0F4FF",
+        textColor: "#1E293B",
+        mailFontSize: 14,
+        createdAt: new Date(),
       },
     });
+
+    // Initialize principal mailboxes in JSON state if absent.
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.spaceEmails == null) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          spaceEmails: {
+            principal: {
+              INBOX: [],
+              SENT: [],
+              DRAFTS: [],
+              "[Gmail]/Spam": [],
+              "[Gmail]/Trash": [],
+            },
+          } as any,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("[ensureDefaultSpaceDb] skipped", error);
   }
 }
 
@@ -598,45 +607,53 @@ export async function readSpaces(session: IronSession<SessionData>): Promise<{
   spaces: Space[];
   spaceEmails: Record<string, Record<string, string[]>>;
 }> {
-  const userId = await ensureDbUser(session);
-  if (!prisma || !userId) {
+  try {
+    const userId = await ensureDbUser(session);
+    if (!prisma || !userId) {
+      return {
+        spaces: Array.isArray(session.spaces) ? session.spaces : [],
+        spaceEmails: (session.spaceEmails ?? {}) as any,
+      };
+    }
+
+    await ensureDefaultSpaceDb(session);
+
+    const spaces = await prisma.space.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: "asc" }],
+    });
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const spaceEmails = (user?.spaceEmails ?? {}) as any;
+
+    return {
+      spaces: spaces.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        color: s.color ?? undefined,
+        icon: s.icon ?? undefined,
+        bgColor: s.bgColor ?? undefined,
+        columnBgColor: s.columnBgColor ?? undefined,
+        columnBackground: (s.columnBackground as any) ?? undefined,
+        textColor: s.textColor ?? undefined,
+        buttonBgColor: s.buttonBgColor ?? undefined,
+        mailFont: (s.mailFont as any) ?? undefined,
+        mailFontSize:
+          typeof s.mailFontSize === "number" ? s.mailFontSize : undefined,
+        railGradientFrom: s.railGradientFrom ?? undefined,
+        railGradientTo: s.railGradientTo ?? undefined,
+        appBackground: (s.appBackground as any) ?? undefined,
+        createdAt: s.createdAt,
+      })),
+      spaceEmails,
+    };
+  } catch (error) {
+    console.error("[readSpaces] falling back to session spaces", error);
     return {
       spaces: Array.isArray(session.spaces) ? session.spaces : [],
       spaceEmails: (session.spaceEmails ?? {}) as any,
     };
   }
-
-  await ensureDefaultSpaceDb(session);
-
-  const spaces = await prisma.space.findMany({
-    where: { userId },
-    orderBy: [{ createdAt: "asc" }],
-  });
-
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  const spaceEmails = (user?.spaceEmails ?? {}) as any;
-
-  return {
-    spaces: spaces.map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      color: s.color ?? undefined,
-      icon: s.icon ?? undefined,
-      bgColor: s.bgColor ?? undefined,
-      columnBgColor: s.columnBgColor ?? undefined,
-      columnBackground: (s.columnBackground as any) ?? undefined,
-      textColor: s.textColor ?? undefined,
-      buttonBgColor: s.buttonBgColor ?? undefined,
-      mailFont: (s.mailFont as any) ?? undefined,
-      mailFontSize:
-        typeof s.mailFontSize === "number" ? s.mailFontSize : undefined,
-      railGradientFrom: s.railGradientFrom ?? undefined,
-      railGradientTo: s.railGradientTo ?? undefined,
-      appBackground: (s.appBackground as any) ?? undefined,
-      createdAt: s.createdAt,
-    })),
-    spaceEmails,
-  };
 }
 
 export async function createSpace(
