@@ -39,7 +39,7 @@ export function EmailListWithPrefetch({
   ...props
 }: EmailListWithPrefetchProps) {
   const emailIds = emails.map((e) => e.id);
-  
+
   // Prefetch first 6 emails on mount (3 immediately, 3 after 2s)
   useInitialPrefetch({
     emailIds,
