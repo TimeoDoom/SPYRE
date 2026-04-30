@@ -44,6 +44,8 @@ interface EmailListSidebarProps {
   textColor?: string;
   buttonBgColor?: string;
   mailFontSize?: number;
+  selectedEmailId?: string;
+  onSelectEmail?: (emailId: string) => void;
 }
 
 export default function EmailListSidebar({
@@ -56,12 +58,14 @@ export default function EmailListSidebar({
   textColor: _textColor,
   buttonBgColor: _buttonBgColor,
   mailFontSize,
+  selectedEmailId: selectedEmailIdProp,
+  onSelectEmail,
 }: EmailListSidebarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const language = useLanguage();
   const currentSpaceId = searchParams.get("space") || "principal";
-  const currentEmailId = searchParams.get("email");
+  const currentEmailId = selectedEmailIdProp ?? searchParams.get("email");
   const currentEmailId2 = searchParams.get("email2");
   const currentBox = searchParams.get("box") || "inbox";
   const currentQuery = searchParams.get("q") || "";
@@ -567,6 +571,12 @@ export default function EmailListSidebar({
               <Link
                 key={email.id}
                 href={buildMailHref(email.id, null)}
+                prefetch={false}
+                onClick={(e) => {
+                  if (!onSelectEmail) return;
+                  e.preventDefault();
+                  onSelectEmail(email.id);
+                }}
                 onMouseEnter={() => prefetchEmailOpen(email.id)}
                 onFocus={() => prefetchEmailOpen(email.id)}
                 onPointerDown={() => prefetchEmailOpen(email.id)}
@@ -710,7 +720,13 @@ export default function EmailListSidebar({
               <div key={email.id} style={{ position: "relative" }}>
                 <Link
                   href={buildMailHref(email.id, null)}
+                  prefetch={false}
                   draggable
+                  onClick={(e) => {
+                    if (!onSelectEmail) return;
+                    e.preventDefault();
+                    onSelectEmail(email.id);
+                  }}
                   onMouseEnter={() => prefetchEmailOpen(email.id)}
                   onFocus={() => prefetchEmailOpen(email.id)}
                   onPointerDown={() => prefetchEmailOpen(email.id)}

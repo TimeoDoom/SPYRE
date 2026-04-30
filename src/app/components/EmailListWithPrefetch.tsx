@@ -27,6 +27,8 @@ interface EmailListWithPrefetchProps {
   textColor?: string;
   buttonBgColor?: string;
   mailFontSize?: number;
+  selectedEmailId?: string;
+  onSelectEmail?: (emailId: string) => void;
 }
 
 /**
