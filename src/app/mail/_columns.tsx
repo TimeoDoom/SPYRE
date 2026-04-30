@@ -44,6 +44,7 @@ type Props = {
   selectedEmail2?: any;
   selectedThread2?: any[];
   meEmail?: string;
+  mailboxName?: string;
   space: Space;
 };
 
@@ -180,6 +181,7 @@ export default function MailColumns(props: Props) {
         {listVisible ? (
           <EmailListWithPrefetch
             emails={props.emails}
+            mailbox={props.mailboxName ?? "INBOX"}
             spaceName={props.spaceName}
             accentColor={props.accentColor}
             columnBgStyle={props.columnBgStyle}

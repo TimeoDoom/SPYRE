@@ -49,7 +49,7 @@ export function EmailListWithPrefetch({
 
   return (
     <Suspense fallback={<MailListLoader />}>
-      <EmailListSidebar emails={emails} {...props} />
+      <EmailListSidebar emails={emails} mailbox={mailbox} {...props} />
     </Suspense>
   );
 }

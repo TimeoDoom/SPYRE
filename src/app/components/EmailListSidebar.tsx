@@ -35,6 +35,7 @@ interface EmailListSidebarProps {
     threadUnreadCount?: number;
     threadMemberIds?: string[];
   }>;
+  mailbox?: string;
   embedded?: boolean;
   spaceName?: string;
   accentColor?: string;
@@ -46,6 +47,7 @@ interface EmailListSidebarProps {
 
 export default function EmailListSidebar({
   emails,
+  mailbox = "INBOX",
   embedded,
   spaceName: _spaceName,
   accentColor: _accentColor = "#0EA5E9",
@@ -217,6 +219,7 @@ export default function EmailListSidebar({
   const ccInputRef = useRef<HTMLInputElement>(null);
   const bccInputRef = useRef<HTMLInputElement>(null);
   const composeFileRef = useRef<HTMLInputElement>(null);
+  const prefetchedIdsRef = useRef<Set<string>>(new Set());
 
   const favoriteContacts = useMemo(
     () => contacts.filter((c) => c.favorite),
@@ -356,6 +359,23 @@ export default function EmailListSidebar({
 
   const openSearch = () => {
     window.dispatchEvent(new CustomEvent("mailapp:open-search"));
+  };
+
+  const prefetchEmailOpen = (emailId: string) => {
+    const id = (emailId || "").trim();
+    if (!id) return;
+    if (prefetchedIdsRef.current.has(id)) return;
+    prefetchedIdsRef.current.add(id);
+
+    router.prefetch(buildMailHref(id, null));
+
+    const params = new URLSearchParams({ id, mailbox });
+    fetch(`/api/mail/prefetch?${params.toString()}`, {
+      method: "GET",
+      credentials: "include",
+    }).catch(() => {
+      // Optimization only.
+    });
   };
 
   const handleAttachFiles = (files: FileList | null) => {
@@ -551,7 +571,9 @@ export default function EmailListSidebar({
               <Link
                 key={email.id}
                 href={buildMailHref(email.id, null)}
-                prefetch={false}
+                onMouseEnter={() => prefetchEmailOpen(email.id)}
+                onFocus={() => prefetchEmailOpen(email.id)}
+                onPointerDown={() => prefetchEmailOpen(email.id)}
                 className={`email-item${currentEmailId === email.id || currentEmailId2 === email.id ? " active" : ""}`}
               >
                 <div className="email-item-avatar">
@@ -692,8 +714,10 @@ export default function EmailListSidebar({
               <div key={email.id} style={{ position: "relative" }}>
                 <Link
                   href={buildMailHref(email.id, null)}
-                  prefetch={false}
                   draggable
+                  onMouseEnter={() => prefetchEmailOpen(email.id)}
+                  onFocus={() => prefetchEmailOpen(email.id)}
+                  onPointerDown={() => prefetchEmailOpen(email.id)}
                   onDragStart={(e) => {
                     e.dataTransfer.setData(
                       "application/x-mailapp-email-id",

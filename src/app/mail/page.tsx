@@ -112,6 +112,7 @@ export default async function MailPage(props: PageProps) {
   let selectedEmail2: any = null;
   let selectedThread2: any[] | null = null;
   let meEmail: string | undefined = undefined;
+  let selectedMailboxName = "INBOX";
   let errorMsg = "";
 
   try {
@@ -138,6 +139,7 @@ export default async function MailPage(props: PageProps) {
         "[Gmail]/Drafts"
       );
     })();
+    selectedMailboxName = mailboxName;
 
     const folderKey = (() => {
       if (box === "inbox") return "INBOX";
@@ -346,6 +348,7 @@ export default async function MailPage(props: PageProps) {
         selectedEmail2={selectedEmail2 as any}
         selectedThread2={selectedThread2 as any}
         meEmail={meEmail}
+        mailboxName={selectedMailboxName}
         space={currentSpace as any}
       />
     </div>
