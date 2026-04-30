@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import { getSession } from "@/lib/session";
 import { normalizeAppLanguage } from "@/lib/i18n";
 import { LanguageProvider } from "@/app/components/LanguageProvider";
+import { ReactQueryProvider } from "@/app/providers/ReactQueryProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -59,7 +60,9 @@ export default async function RootLayout({
         ) : null}
 
         <LanguageProvider language={language}>
-          <div className="relative">{children}</div>
+          <ReactQueryProvider>
+            <div className="relative">{children}</div>
+          </ReactQueryProvider>
         </LanguageProvider>
       </body>
     </html>
