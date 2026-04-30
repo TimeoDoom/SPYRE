@@ -60,18 +60,41 @@ function getStr(form: FormData, name: string): string | undefined {
 function isTrustedPost(req: Request) {
   const reqUrl = new URL(req.url);
 
-  const origin = req.headers.get("origin");
-  if (origin) return origin === reqUrl.origin;
+  // Helper: determine the apparent origin of the incoming request.
+  const getRequestOrigin = () => {
+    // Browser-sent Origin header takes precedence
+    const origin = req.headers.get("origin");
+    if (origin) return origin;
 
-  const referer = req.headers.get("referer");
-  if (referer) {
-    try {
-      return new URL(referer).origin === reqUrl.origin;
-    } catch {
-      return false;
+    // If behind a proxy (Render), the original protocol/host may be forwarded
+    const xfProto = req.headers.get("x-forwarded-proto");
+    const xfHost = req.headers.get("x-forwarded-host");
+    if (xfProto && xfHost) return `${xfProto}://${xfHost}`;
+
+    // Fallback to Referer header
+    const referer = req.headers.get("referer");
+    if (referer) {
+      try {
+        return new URL(referer).origin;
+      } catch {
+        /* ignore */
+      }
     }
+
+    return null;
+  };
+
+  const requestOrigin = getRequestOrigin();
+
+  // If we were able to infer an origin, accept when it equals the request URL origin
+  // or the configured APP_BASE_URL (useful when behind a proxy/Load Balancer).
+  if (requestOrigin) {
+    if (requestOrigin === reqUrl.origin) return true;
+    const appBase = process.env.APP_BASE_URL;
+    if (appBase && requestOrigin === appBase) return true;
   }
 
+  // As a last resort, fall back to sec-fetch-site check
   const secFetchSite = req.headers.get("sec-fetch-site");
   return secFetchSite === "same-origin" || secFetchSite === "same-site";
 }
