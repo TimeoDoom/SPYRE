@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { SpaceIcon } from "./SpaceIcon";
+import { PrefetchEmail } from "./PrefetchEmail";
 import type { Space } from "@/lib/session";
 import RichTextEditor from "./RichTextEditor";
 import { useLanguage } from "@/app/components/LanguageProvider";
@@ -690,20 +691,21 @@ export default function EmailListSidebar({
             const showUnreadBadge = threadUnreadCount > 0;
             return (
               <div key={email.id} style={{ position: "relative" }}>
-                <Link
-                  href={buildMailHref(email.id, null)}
-                  prefetch={false}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(
-                      "application/x-mailapp-email-id",
-                      email.id,
-                    );
-                    e.dataTransfer.setData("text/plain", email.id);
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  className={`email-item${isActive ? " active" : ""}`}
-                >
+                <PrefetchEmail emailId={email.id} mailbox="INBOX">
+                  <Link
+                    href={buildMailHref(email.id, null)}
+                    prefetch={false}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        "application/x-mailapp-email-id",
+                        email.id,
+                      );
+                      e.dataTransfer.setData("text/plain", email.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    className={`email-item${isActive ? " active" : ""}`}
+                  >
                   <div className="email-item-avatar">
                     {(() => {
                       const fromEmail = (email.from || "").includes("<")
@@ -833,6 +835,7 @@ export default function EmailListSidebar({
                     </div>
                   </div>
                 </Link>
+                </PrefetchEmail>
 
                 {openMenuId === email.id && (
                   <>

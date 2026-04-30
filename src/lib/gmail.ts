@@ -6,6 +6,12 @@ import { simpleParser } from "mailparser";
 import sanitizeHtml from "sanitize-html";
 import { getSession } from "@/lib/session";
 import { readMailSettings } from "@/lib/persist";
+import { unstable_cache } from "next/cache";
+
+// Simple in-memory cache for parsed messages (will be cleared on server restart)
+const messageCache = new Map<string, any>();
+const CACHE_MAX_SIZE = 100; // Keep last 100 messages
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour TTL
 
 type MailEnv = {
   address: string;
@@ -514,6 +520,36 @@ export async function getMailboxes() {
 }
 
 export async function getMessage(id: string, mailboxName = "INBOX") {
+  const cacheKey = `${mailboxName}:${id}`;
+  
+  // Check in-memory cache first
+  const cached = messageCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    console.debug(`[getMessage] Cache HIT for ${cacheKey}`);
+    return cached.data;
+  }
+
+  console.debug(`[getMessage] Cache MISS for ${cacheKey}, fetching...`);
+  const result = await getMessageCore(id, mailboxName);
+  
+  // Store in cache
+  messageCache.set(cacheKey, {
+    data: result,
+    timestamp: Date.now(),
+  });
+  
+  // Simple LRU: remove oldest if cache too large
+  if (messageCache.size > CACHE_MAX_SIZE) {
+    const firstKey = messageCache.keys().next().value;
+    if (firstKey !== undefined) {
+      messageCache.delete(firstKey);
+    }
+  }
+  
+  return result;
+}
+
+async function getMessageCore(id: string, mailboxName = "INBOX") {
   const uid = Number(id);
   if (!Number.isFinite(uid) || uid <= 0) throw new Error("Invalid message id");
 
