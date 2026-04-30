@@ -3,16 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id                 String   @id @default(uuid())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  // Mail settings
+  id                 String   @id
   mailAddress        String?
   mailAppPasswordEnc String?
   imapHost           String?
@@ -21,25 +17,21 @@ model User {
   smtpHost           String?
   smtpPort           Int?
   smtpSecure         Boolean?
-
-  // UI settings
   uiTheme            String?
   uiTexture          String?
-  uiBackground       Json?
   uiLanguage         String?
-
-  // Stored as JSON: spaceId -> mailbox -> [emailIds]
+  uiBackground       Json?
   spaceEmails        Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  spaces             Space[]
-  contacts           Contact[]
+  spaces   Space[]
+  contacts Contact[]
 }
 
 model Space {
-  id              String   @default(uuid())
+  id              String   @id
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   name            String
   color           String?
   icon            String?
@@ -51,28 +43,54 @@ model Space {
   mailFont        String?
   mailFontSize    Int?
   railGradientFrom String?
-  railGradientTo   String?
+  railGradientTo  String?
   appBackground   Json?
-
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@id([userId, id])
-  @@index([userId])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model Contact {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String
+  email              String
+  favorite           Boolean  @default(false)
+  avatarUrl          String?
+  avatarContentType  String?
+  avatarUpdatedAt    DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  email     String
-  favorite  Boolean  @default(false)
-  avatarUrl String?
-  avatarData Bytes?
-  avatarContentType String?
-  avatarUpdatedAt DateTime?
-  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, email])
-  @@index([userId])
+}
+
+model EmailMetadata {
+  id              String   @id // Format: "FOLDER:UID"
+  uid             String
+  folder          String   // "INBOX", "[Gmail]/Sent Mail", etc.
+  threadId        String?
+  messageId       String?
+  inReplyTo       String?
+  references      String   @default("[]") // JSON string[]
+  from            String
+  to              String
+  cc              String   @default("")
+  subject         String   @default("")
+  date            DateTime
+  snippet         String   @default("")
+  seen            Boolean  @default(false)
+  flagged         Boolean  @default(false)
+  hasAttachments  Boolean  @default(false)
+  bodyText        String   @default("")
+  bodyHtml        String   @default("")
+  attachments     String   @default("[]") // JSON
+  rawSize         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([folder, date(sort: Desc)])
+  @@index([threadId])
 }
