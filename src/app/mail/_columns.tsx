@@ -70,7 +70,9 @@ function ToggleIcon({ direction }: { direction: "left" | "right" }) {
   );
 }
 
-export default function MailColumns(props: Props) {
+export default function MailColumns(
+  props: Props & { children?: React.ReactNode },
+) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [listVisible, setListVisible] = useState(true);
@@ -259,6 +261,9 @@ export default function MailColumns(props: Props) {
               </div>
             </div>
           </div>
+        ) : props.children ? (
+          // If a child route is present (server-rendered message page), render it in the read pane
+          <div className="h-full min-h-0">{props.children}</div>
         ) : props.selectedEmailId && props.selectedEmail ? (
           props.selectedEmailId2 && props.selectedEmail2 ? (
             <SplitView

@@ -11,12 +11,17 @@ export async function GET(req: Request) {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   try {
+    const start = Date.now();
     const session = await getSession();
     if (!session)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const msg = await getMessage(id, mailbox);
-    return NextResponse.json({ ok: true, message: msg });
+    const dur = Date.now() - start;
+    return NextResponse.json(
+      { ok: true, message: msg },
+      { headers: { "Server-Timing": `getMessage;dur=${dur}` } },
+    );
   } catch (e) {
     console.error("/api/mail/get error", e);
     return NextResponse.json(
