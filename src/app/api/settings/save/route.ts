@@ -103,7 +103,8 @@ export async function POST(req: Request) {
   const reqUrl = new URL(req.url);
 
   if (!isTrustedPost(req)) {
-    const url = new URL("/settings", reqUrl.origin);
+    const base = process.env.APP_BASE_URL ?? reqUrl.origin;
+    const url = new URL("/settings", base);
     url.searchParams.set("error", "CSRF blocked");
     return NextResponse.redirect(url, 303);
   }
@@ -121,7 +122,8 @@ export async function POST(req: Request) {
   });
 
   if (!parsed.success) {
-    const url = new URL("/settings", reqUrl.origin);
+    const base = process.env.APP_BASE_URL ?? reqUrl.origin;
+    const url = new URL("/settings", base);
     url.searchParams.set("error", "Formulaire invalide");
     return NextResponse.redirect(url, 303);
   }
@@ -132,7 +134,8 @@ export async function POST(req: Request) {
   const appPassword = parsed.data.appPassword ?? existingPassword;
 
   if (!appPassword) {
-    const url = new URL("/settings", reqUrl.origin);
+    const base = process.env.APP_BASE_URL ?? reqUrl.origin;
+    const url = new URL("/settings", base);
     url.searchParams.set("error", "Mot de passe d’application requis");
     return NextResponse.redirect(url, 303);
   }
@@ -148,8 +151,6 @@ export async function POST(req: Request) {
     smtpSecure: parsed.data.smtpSecure,
   });
 
-  return NextResponse.redirect(
-    new URL("/settings?saved=1", reqUrl.origin),
-    303,
-  );
+  const base = process.env.APP_BASE_URL ?? reqUrl.origin;
+  return NextResponse.redirect(new URL("/settings?saved=1", base), 303);
 }
