@@ -17,19 +17,19 @@ export function useInitialPrefetch({
   batchSize = 5,
 }: UseInitialPrefetchProps) {
   useEffect(() => {
-      if (!emailIds.length) return;
+    if (!emailIds.length) return;
 
-      const firstBatch = emailIds.slice(0, 2);
+    const firstBatch = emailIds.slice(0, 2);
 
-      firstBatch.forEach((id, index) => {
-        const timer = setTimeout(() => {
-          // Use shared schedulePrefetch helper to dedupe and defer work
-          import("@/lib/prefetchClient").then(({ schedulePrefetch }) => {
-            schedulePrefetch(id, mailbox);
-          });
-        }, index * 500);
+    firstBatch.forEach((id, index) => {
+      const timer = setTimeout(() => {
+        // Use shared schedulePrefetch helper to dedupe and defer work
+        import("@/lib/prefetchClient").then(({ schedulePrefetch }) => {
+          schedulePrefetch(id, mailbox);
+        });
+      }, index * 500);
 
-        return () => clearTimeout(timer);
-      });
-    }, [emailIds, mailbox, batchSize]);
+      return () => clearTimeout(timer);
+    });
+  }, [emailIds, mailbox, batchSize]);
 }

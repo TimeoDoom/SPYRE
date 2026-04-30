@@ -27,8 +27,7 @@ export function schedulePrefetch(id: string, mailbox = "INBOX") {
 
   const task = async () => {
     try {
-      const url = 
-        `/api/mail/prefetch?id=${encodeURIComponent(id)}&mailbox=${encodeURIComponent(mailbox)}`;
+      const url = `/api/mail/prefetch?id=${encodeURIComponent(id)}&mailbox=${encodeURIComponent(mailbox)}`;
       await fetch(url, {
         method: "GET",
         credentials: "include",
