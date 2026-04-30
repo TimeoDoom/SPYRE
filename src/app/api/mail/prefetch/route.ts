@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     console.error("[prefetch] Error:", error);
     return Response.json(
       { error: "Failed to prefetch message" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -521,7 +521,7 @@ export async function getMailboxes() {
 
 export async function getMessage(id: string, mailboxName = "INBOX") {
   const cacheKey = `${mailboxName}:${id}`;
-  
+
   // Check in-memory cache first
   const cached = messageCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -531,13 +531,13 @@ export async function getMessage(id: string, mailboxName = "INBOX") {
 
   console.debug(`[getMessage] Cache MISS for ${cacheKey}, fetching...`);
   const result = await getMessageCore(id, mailboxName);
-  
+
   // Store in cache
   messageCache.set(cacheKey, {
     data: result,
     timestamp: Date.now(),
   });
-  
+
   // Simple LRU: remove oldest if cache too large
   if (messageCache.size > CACHE_MAX_SIZE) {
     const firstKey = messageCache.keys().next().value;
@@ -545,7 +545,7 @@ export async function getMessage(id: string, mailboxName = "INBOX") {
       messageCache.delete(firstKey);
     }
   }
-  
+
   return result;
 }
 

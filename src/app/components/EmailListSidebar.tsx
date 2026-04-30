@@ -706,135 +706,137 @@ export default function EmailListSidebar({
                     }}
                     className={`email-item${isActive ? " active" : ""}`}
                   >
-                  <div className="email-item-avatar">
-                    {(() => {
-                      const fromEmail = (email.from || "").includes("<")
-                        ? (email.from || "")
-                            .split("<")[1]
-                            .replace(">", "")
-                            .trim()
-                        : (email.from || "").trim();
-                      const contact = contacts.find(
-                        (c) =>
-                          c.email.toLowerCase() === fromEmail.toLowerCase(),
-                      );
-                      if (contact?.avatarUrl) {
-                        return <img src={contact.avatarUrl} alt="" />;
-                      }
-                      return (
-                        <div className="email-item-avatar-placeholder">
-                          {(email.from || "?")[0].toUpperCase()}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  <div className="email-item-content">
-                    <div className="email-item-header">
-                      <span className="email-item-sender">
-                        {(email.from || "").includes("<")
+                    <div className="email-item-avatar">
+                      {(() => {
+                        const fromEmail = (email.from || "").includes("<")
                           ? (email.from || "")
-                              .split("<")[0]
+                              .split("<")[1]
+                              .replace(">", "")
                               .trim()
-                              .replace(/^"|"$/g, "")
-                          : (email.from || "").split("@")[0]}
-                      </span>
+                          : (email.from || "").trim();
+                        const contact = contacts.find(
+                          (c) =>
+                            c.email.toLowerCase() === fromEmail.toLowerCase(),
+                        );
+                        if (contact?.avatarUrl) {
+                          return <img src={contact.avatarUrl} alt="" />;
+                        }
+                        return (
+                          <div className="email-item-avatar-placeholder">
+                            {(email.from || "?")[0].toUpperCase()}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="email-item-content">
+                      <div className="email-item-header">
+                        <span className="email-item-sender">
+                          {(email.from || "").includes("<")
+                            ? (email.from || "")
+                                .split("<")[0]
+                                .trim()
+                                .replace(/^"|"$/g, "")
+                            : (email.from || "").split("@")[0]}
+                        </span>
+                        <div
+                          className="email-item-header-actions"
+                          style={{ position: "relative" }}
+                        >
+                          <button
+                            type="button"
+                            className="email-item-dots-btn"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setOpenMenuId(
+                                openMenuId === email.id ? null : email.id,
+                              );
+                            }}
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <circle cx="12" cy="12" r="1" />
+                              <circle cx="19" cy="12" r="1" />
+                              <circle cx="5" cy="12" r="1" />
+                            </svg>
+                          </button>
+                          {showUnreadBadge && (
+                            <div className="email-item-unread-badge">
+                              {threadUnreadCount}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       <div
-                        className="email-item-header-actions"
-                        style={{ position: "relative" }}
+                        className="email-item-subject"
+                        style={{
+                          fontWeight: 700,
+                          ...(mailFontSize
+                            ? { fontSize: `${mailFontSize}px` }
+                            : {}),
+                        }}
                       >
-                        <button
-                          type="button"
-                          className="email-item-dots-btn"
+                        {email.subject || t(language, "mail.noSubject")}
+                      </div>
+                      <div className="email-item-snippet">{email.snippet}</div>
+                      <div className="email-item-footer">
+                        <span className="email-item-date">{email.date}</span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="email-item-favorite-toggle"
+                          style={{
+                            color: contacts.find(
+                              (c) => c.email === extractAddress(email.from),
+                            )?.favorite
+                              ? "#f59e0b"
+                              : "#d1d5db",
+                            fontSize: "20px",
+                            cursor: "pointer",
+                          }}
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setOpenMenuId(
-                              openMenuId === email.id ? null : email.id,
-                            );
+                            void toggleFavoriteSender(email.from);
                           }}
                         >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <circle cx="12" cy="12" r="1" />
-                            <circle cx="19" cy="12" r="1" />
-                            <circle cx="5" cy="12" r="1" />
-                          </svg>
-                        </button>
-                        {showUnreadBadge && (
-                          <div className="email-item-unread-badge">
-                            {threadUnreadCount}
-                          </div>
-                        )}
+                          {contacts.find(
+                            (c) => c.email === extractAddress(email.from),
+                          )?.favorite ? (
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="#f59e0b"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                          ) : (
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                          )}
+                        </span>
                       </div>
                     </div>
-                    <div
-                      className="email-item-subject"
-                      style={{
-                        fontWeight: 700,
-                        ...(mailFontSize
-                          ? { fontSize: `${mailFontSize}px` }
-                          : {}),
-                      }}
-                    >
-                      {email.subject || t(language, "mail.noSubject")}
-                    </div>
-                    <div className="email-item-snippet">{email.snippet}</div>
-                    <div className="email-item-footer">
-                      <span className="email-item-date">{email.date}</span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="email-item-favorite-toggle"
-                        style={{
-                          color: contacts.find(
-                            (c) => c.email === extractAddress(email.from),
-                          )?.favorite
-                            ? "#f59e0b"
-                            : "#d1d5db",
-                          fontSize: "20px",
-                          cursor: "pointer",
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void toggleFavoriteSender(email.from);
-                        }}
-                      >
-                        {contacts.find(
-                          (c) => c.email === extractAddress(email.from),
-                        )?.favorite
-                          ? <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="#f59e0b"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                      </svg>
-                          : <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                      </svg>}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+                  </Link>
                 </PrefetchEmail>
 
                 {openMenuId === email.id && (
