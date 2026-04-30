@@ -8,8 +8,8 @@ interface UseInitialPrefetchProps {
 }
 
 /**
- * Hook that prefetches emails aggressively for instant loading.
- * First batch loads immediately with high priority.
+ * Hook that prefetches emails conservatively to avoid IMAP socket timeouts.
+ * Only prefetch top 2 items on mount, with conservative delays.
  */
 export function useInitialPrefetch({
   emailIds,
@@ -19,55 +19,26 @@ export function useInitialPrefetch({
   useEffect(() => {
     if (!emailIds.length) return;
 
-    // Prefetch FIRST batch immediately with HIGH priority
-    const firstBatch = emailIds.slice(0, batchSize);
+    // Prefetch only the FIRST 2 emails with long spacing to avoid connection pool exhaustion
+    const firstBatch = emailIds.slice(0, 2);
     
     firstBatch.forEach((id, index) => {
-      // Very aggressive staggering (30ms between requests)
-      setTimeout(() => {
+      // Very conservative staggering (500ms between requests)
+      const timer = setTimeout(() => {
         const params = new URLSearchParams({ id, mailbox });
         fetch(`/api/mail/prefetch?${params}`, {
           method: "GET",
-          priority: "high",
+          priority: "low",
+          signal: AbortSignal.timeout(10000), // 10 second timeout per request
         }).catch(() => {
           // Silently fail - prefetch is optional
         });
-      }, index * 30);
+      }, index * 500);
+
+      return () => clearTimeout(timer);
     });
 
-    // Prefetch SECOND batch after a short delay
-    const secondBatchTimer = setTimeout(() => {
-      const secondBatch = emailIds.slice(batchSize, batchSize + 5);
-      
-      secondBatch.forEach((id, index) => {
-        setTimeout(() => {
-          const params = new URLSearchParams({ id, mailbox });
-          fetch(`/api/mail/prefetch?${params}`, {
-            method: "GET",
-            priority: "low",
-          }).catch(() => {});
-        }, index * 100);
-      });
-    }, 500);
-
-    // Prefetch REMAINING emails in background
-    const remainingTimer = setTimeout(() => {
-      const remaining = emailIds.slice(batchSize + 5);
-      
-      remaining.forEach((id, index) => {
-        setTimeout(() => {
-          const params = new URLSearchParams({ id, mailbox });
-          fetch(`/api/mail/prefetch?${params}`, {
-            method: "GET",
-            priority: "low",
-          }).catch(() => {});
-        }, index * 300);
-      });
-    }, 2000);
-
-    return () => {
-      clearTimeout(secondBatchTimer);
-      clearTimeout(remainingTimer);
-    };
+    // Don't prefetch remaining emails on mount to avoid connection pool issues
+    // They will be prefetched on-demand via hover/focus instead
   }, [emailIds, mailbox, batchSize]);
 }

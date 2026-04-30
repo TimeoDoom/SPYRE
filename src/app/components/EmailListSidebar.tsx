@@ -373,8 +373,9 @@ export default function EmailListSidebar({
     fetch(`/api/mail/prefetch?${params.toString()}`, {
       method: "GET",
       credentials: "include",
+      signal: AbortSignal.timeout(12000), // 12 second timeout to prevent hanging
     }).catch(() => {
-      // Optimization only.
+      // Optimization only - prefetch is optional, don't fail silently if timeout
     });
   };
 

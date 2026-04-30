@@ -4,9 +4,24 @@ import { getSession } from "@/lib/session";
 /**
  * Prefetch endpoint to load a message into cache without rendering UI.
  * Called before user navigates to the message detail view.
- * Response is minimal - just needs to trigger the cache population.
+ * Limited concurrency to avoid overwhelming IMAP connection pool.
  */
-// route.ts (prefetch) - Version optimisée
+let activePrefetches = 0;
+const MAX_CONCURRENT_PREFETCHES = 2;
+const prefetchQueue: Array<() => Promise<any>> = [];
+
+async function processPrefetchQueue() {
+  while (prefetchQueue.length > 0 && activePrefetches < MAX_CONCURRENT_PREFETCHES) {
+    const work = prefetchQueue.shift();
+    if (!work) break;
+    activePrefetches++;
+    work().finally(() => {
+      activePrefetches--;
+      processPrefetchQueue();
+    });
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const messageId = searchParams.get("id");
@@ -16,32 +31,27 @@ export async function GET(request: Request) {
     return Response.json({ error: "Missing id parameter" }, { status: 400 });
   }
 
-  try {
-    const session = await getSession();
-    if (!session) {
-      return Response.json({ error: "Not authenticated" }, { status: 401 });
+  // Queue the prefetch work to limit concurrency
+  // Return immediately while work continues in background
+  const work = async () => {
+    try {
+      const session = await getSession();
+      if (!session) return;
+
+      try {
+        await getMessage(messageId, mailbox);
+      } catch (error) {
+        console.error("[prefetch] Failed to fetch message:", error);
+      }
+    } catch (error) {
+      console.error("[prefetch] Error:", error);
     }
+  };
 
-    // Utiliser Next.js cache pour éviter les appels répétés
-    const cachedMessage = await getMessage(messageId, mailbox);
+  // Queue work to run in background with concurrency limit
+  prefetchQueue.push(work);
+  processPrefetchQueue();
 
-    // Réponse minimale
-    return Response.json({
-      ok: true,
-      cached: true,
-      // Ne renvoyer que les métadonnées pour le cache
-      meta: {
-        id: cachedMessage.id,
-        subject: cachedMessage.subject,
-        from: cachedMessage.from,
-        date: cachedMessage.date,
-      },
-    });
-  } catch (error) {
-    console.error("[prefetch] Error:", error);
-    return Response.json(
-      { error: "Failed to prefetch message" },
-      { status: 500 },
-    );
-  }
+  // Return immediately
+  return Response.json({ ok: true, queued: true });
 }

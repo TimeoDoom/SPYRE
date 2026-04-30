@@ -17,6 +17,13 @@ const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes in memory
 let cachedImapClient: ImapFlow | null = null;
 let lastImapConnectTime = 0;
 const IMAP_CONNECTION_TTL = 5 * 60 * 1000; // 5 minutes
+const IMAP_SOCKET_TIMEOUT = 15 * 1000; // 15 seconds (should complete within this)
+const IMAP_CMD_TIMEOUT = 20 * 1000; // 20 seconds per command
+
+// Prefetch concurrency limiter: max 3 concurrent prefetch operations
+let activePrefetches = 0;
+const MAX_CONCURRENT_PREFETCHES = 3;
+const prefetchQueue: Array<() => Promise<void>> = [];
 
 type MailEnv = {
   address: string;
@@ -144,6 +151,8 @@ async function getCachedImapClient(): Promise<ImapFlow> {
       pass: env.appPassword,
     },
     logger: false,
+    socketTimeout: IMAP_SOCKET_TIMEOUT,
+    connectionTimeout: IMAP_CMD_TIMEOUT,
   });
 
   try {
