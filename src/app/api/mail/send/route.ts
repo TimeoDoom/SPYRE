@@ -73,7 +73,20 @@ function isTrustedPost(req: Request) {
   const reqUrl = new URL(req.url);
 
   const origin = req.headers.get("origin");
-  if (origin) return origin === reqUrl.origin;
+  if (origin) {
+    // In dev, localhost requests may have origin mismatches due to port forwarding
+    if (origin === reqUrl.origin) return true;
+    // Allow dev environment with localhost
+    if (
+      process.env.NODE_ENV === "development" &&
+      (origin.includes("localhost") || origin.includes("127.0.0.1")) &&
+      (reqUrl.origin.includes("localhost") ||
+        reqUrl.origin.includes("127.0.0.1"))
+    ) {
+      return true;
+    }
+    return false;
+  }
 
   // Some clients might omit Origin for same-site form POSTs. Fallback to Referer.
   const referer = req.headers.get("referer");
