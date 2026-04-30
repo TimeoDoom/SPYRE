@@ -73,12 +73,6 @@ export default function EmailListSidebar({
     return `${base}${p}${s}`;
   };
 
-  const buildMessageHref = (emailId?: string | null) => {
-    if (!emailId)
-      return `/mail?space=${encodeURIComponent(currentSpaceId)}&box=${encodeURIComponent(currentBox)}`;
-    return `/mail/message/${encodeURIComponent(emailId)}?space=${encodeURIComponent(currentSpaceId)}&box=${encodeURIComponent(currentBox)}${currentQuery ? `&q=${encodeURIComponent(currentQuery)}` : ""}`;
-  };
-
   const ui = useMemo(() => {
     if (language === "en") {
       return {
@@ -374,7 +368,7 @@ export default function EmailListSidebar({
     if (prefetchedIdsRef.current.has(id)) return;
     prefetchedIdsRef.current.add(id);
 
-    router.prefetch(buildMessageHref(id));
+    router.prefetch(buildMailHref(id, null));
 
     // Use shared schedulePrefetch to dedupe and defer work
     schedulePrefetch(id, mailbox);
@@ -572,7 +566,7 @@ export default function EmailListSidebar({
             emails.map((email) => (
               <Link
                 key={email.id}
-                href={buildMessageHref(email.id)}
+                href={buildMailHref(email.id, null)}
                 onMouseEnter={() => prefetchEmailOpen(email.id)}
                 onFocus={() => prefetchEmailOpen(email.id)}
                 onPointerDown={() => prefetchEmailOpen(email.id)}
@@ -715,7 +709,7 @@ export default function EmailListSidebar({
             return (
               <div key={email.id} style={{ position: "relative" }}>
                 <Link
-                  href={buildMessageHref(email.id)}
+                  href={buildMailHref(email.id, null)}
                   draggable
                   onMouseEnter={() => prefetchEmailOpen(email.id)}
                   onFocus={() => prefetchEmailOpen(email.id)}

@@ -90,7 +90,10 @@ export default async function SpacePage({ params }: PageProps) {
               <ul className="divide-y">
                 {emailMetadata.map((email) => (
                   <li key={email.id} className="p-4 hover:bg-slate-50">
-                    <Link href={`/mail/message/${email.id}`} className="block">
+                    <Link
+                      href={`/mail?space=${encodeURIComponent(space.id)}&email=${encodeURIComponent(email.id)}`}
+                      className="block"
+                    >
                       <div className="flex flex-wrap justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">
