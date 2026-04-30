@@ -6,12 +6,17 @@ import { simpleParser } from "mailparser";
 import sanitizeHtml from "sanitize-html";
 import { getSession } from "@/lib/session";
 import { readMailSettings } from "@/lib/persist";
-import { unstable_cache } from "next/cache";
+import { getCachedMessage, setCachedMessage } from "@/lib/cache";
 
-// Simple in-memory cache for parsed messages (will be cleared on server restart)
+// Simple in-memory cache for parsed messages
 const messageCache = new Map<string, any>();
-const CACHE_MAX_SIZE = 100; // Keep last 100 messages
-const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour TTL
+const CACHE_MAX_SIZE = 100;
+const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes in memory
+
+// IMAP connection pooling
+let cachedImapClient: ImapFlow | null = null;
+let lastImapConnectTime = 0;
+const IMAP_CONNECTION_TTL = 5 * 60 * 1000; // 5 minutes
 
 type MailEnv = {
   address: string;
@@ -59,7 +64,6 @@ async function getMailEnv(): Promise<MailEnv> {
     };
   }
 
-  // Backward compatibility: allow .env config if present.
   const address = process.env.GMAIL_ADDRESS;
   const appPassword = process.env.GMAIL_APP_PASSWORD;
 
@@ -100,7 +104,6 @@ async function streamToBuffer(input: unknown): Promise<Buffer> {
   if (Buffer.isBuffer(input)) return input;
   if (!input || typeof input !== "object") return Buffer.from("");
 
-  // imapflow provides Readable stream for `source`
   const stream = input as AsyncIterable<Uint8Array | Buffer | string>;
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
@@ -110,9 +113,29 @@ async function streamToBuffer(input: unknown): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-async function withImap<T>(fn: (client: ImapFlow) => Promise<T>) {
+// NEW: Get or create cached IMAP connection
+async function getCachedImapClient(): Promise<ImapFlow> {
+  const now = Date.now();
+
+  // Return existing connection if still valid
+  if (cachedImapClient && now - lastImapConnectTime < IMAP_CONNECTION_TTL) {
+    try {
+      // Test if connection is still alive
+      await cachedImapClient.noop();
+      return cachedImapClient;
+    } catch {
+      // Connection dead, create new one
+      try {
+        await cachedImapClient.logout();
+      } catch {
+        // ignore
+      }
+      cachedImapClient = null;
+    }
+  }
+
   const env = await getMailEnv();
-  const client = new ImapFlow({
+  cachedImapClient = new ImapFlow({
     host: env.imap.host,
     port: env.imap.port,
     secure: env.imap.secure,
@@ -124,8 +147,11 @@ async function withImap<T>(fn: (client: ImapFlow) => Promise<T>) {
   });
 
   try {
-    await client.connect();
+    await cachedImapClient.connect();
+    lastImapConnectTime = now;
+    return cachedImapClient;
   } catch (connectErr) {
+    cachedImapClient = null;
     const err = connectErr as any;
     const details = {
       host: env.imap.host,
@@ -135,23 +161,19 @@ async function withImap<T>(fn: (client: ImapFlow) => Promise<T>) {
       code: err?.code || err?.statusCode,
     };
     console.error(
-      "[withImap] Connection failed:",
+      "[IMAP] Connection failed:",
       JSON.stringify(details, null, 2),
     );
     throw new Error(
       `Connexion IMAP échouée (${details.host}:${details.port}) - ${details.message}`,
     );
   }
+}
 
-  try {
-    return await fn(client);
-  } finally {
-    try {
-      await client.logout();
-    } catch {
-      // ignore
-    }
-  }
+// Legacy withImap for compatibility
+async function withImap<T>(fn: (client: ImapFlow) => Promise<T>) {
+  const client = await getCachedImapClient();
+  return fn(client);
 }
 
 export async function listMailbox(mailboxName: string, maxResults = 10) {
@@ -232,10 +254,8 @@ export async function listMailbox(mailboxName: string, maxResults = 10) {
         `[listMailbox] Error fetching messages from "${mailboxName}":`,
         (fetchErr as any)?.message || String(fetchErr),
       );
-      // Return what we got so far even if fetch failed
     }
 
-    // newest first
     out.reverse();
     return out;
   });
@@ -268,7 +288,6 @@ export async function listMailboxThreads(mailboxName: string, maxResults = 50) {
     const exists = Number(mailbox?.exists ?? 0);
     if (!Number.isFinite(exists) || exists <= 0) return [];
     const want = Math.max(1, Math.floor(maxResults));
-    // We fetch a little more than requested because grouping will reduce rows.
     const fetchCount = Math.min(250, Math.max(want * 4, want));
     const start = Math.max(1, exists - fetchCount + 1);
     const range = `${start}:${exists}`;
@@ -346,7 +365,6 @@ export async function listMailboxThreads(mailboxName: string, maxResults = 50) {
       });
     }
 
-    // Newest first within the raw list.
     rows.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
 
     const byMessageId = new Map<string, Row>();
@@ -355,10 +373,8 @@ export async function listMailboxThreads(mailboxName: string, maxResults = 50) {
     }
 
     const resolveRootKey = (r: Row): string => {
-      // Prefer server-provided threadId when available (Gmail X-GM-THRID).
       if (r.threadId) return `thrid:${r.threadId}`;
 
-      // Fallback: walk the inReplyTo chain within our fetched window.
       const visited = new Set<string>();
       let cur: Row | undefined = r;
       let guard = 0;
@@ -450,7 +466,6 @@ export async function getMailboxes() {
       const categories: Array<{ name: string; label: string; icon: string }> =
         [];
 
-      // Always include INBOX first
       categories.push({ name: "INBOX", label: "Inbox", icon: "📥" });
 
       for (const mb of mailboxes) {
@@ -460,7 +475,6 @@ export async function getMailboxes() {
         let label = "";
         let icon = "📧";
 
-        // Gmail labels/folders - support both English and localized (French) names
         if (name.includes("Spam") || name.includes("spam")) {
           label = "Spam";
           icon = "🚫";
@@ -494,13 +508,10 @@ export async function getMailboxes() {
           label = "Tous les messages";
           icon = "📂";
         } else if (name.startsWith("[Gmail]")) {
-          // Skip other Gmail system labels
           continue;
         } else if (name === "Plus tard") {
-          // Skip custom labels for now
           continue;
         } else {
-          // Skip other labels
           continue;
         }
 
@@ -514,7 +525,6 @@ export async function getMailboxes() {
     });
   } catch (err) {
     console.error("Error fetching mailboxes:", err);
-    // Return only INBOX as fallback if something goes wrong
     return [{ name: "INBOX", label: "Inbox", icon: "📥" }];
   }
 }
@@ -522,29 +532,49 @@ export async function getMailboxes() {
 export async function getMessage(id: string, mailboxName = "INBOX") {
   const cacheKey = `${mailboxName}:${id}`;
 
-  // Check in-memory cache first
-  const cached = messageCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    console.debug(`[getMessage] Cache HIT for ${cacheKey}`);
-    return cached.data;
+  // 1. Try Redis cache first (persistent across restarts)
+  const redisCached = await getCachedMessage(id, mailboxName);
+  if (redisCached) {
+    console.debug(`[getMessage] Redis HIT for ${cacheKey}`);
+
+    // Also populate memory cache
+    if (messageCache.size < CACHE_MAX_SIZE) {
+      messageCache.set(cacheKey, {
+        data: redisCached,
+        timestamp: Date.now(),
+      });
+    }
+
+    return redisCached;
   }
 
+  // 2. Try memory cache second
+  const memoryCached = messageCache.get(cacheKey);
+  if (memoryCached && Date.now() - memoryCached.timestamp < CACHE_TTL_MS) {
+    console.debug(`[getMessage] Memory HIT for ${cacheKey}`);
+    return memoryCached.data;
+  }
+
+  // 3. Fetch from Gmail
   console.debug(`[getMessage] Cache MISS for ${cacheKey}, fetching...`);
   const result = await getMessageCore(id, mailboxName);
 
-  // Store in cache
+  // 4. Store in caches
   messageCache.set(cacheKey, {
     data: result,
     timestamp: Date.now(),
   });
 
-  // Simple LRU: remove oldest if cache too large
+  // Cleanup old entries
   if (messageCache.size > CACHE_MAX_SIZE) {
     const firstKey = messageCache.keys().next().value;
     if (firstKey !== undefined) {
       messageCache.delete(firstKey);
     }
   }
+
+  // Store in Redis (fire and forget)
+  setCachedMessage(id, mailboxName, result).catch(console.error);
 
   return result;
 }
@@ -902,8 +932,6 @@ export async function getThreadMessages(
             .flatMap((x) => parseMessageIdList(x))
         : parseMessageIdList((parsedSeed as any).headers?.get?.("references"));
 
-      // Gmail threads span multiple folders (inbox + sent). Use "All Mail" when available.
-      // Note: the exact mailbox name can be localized.
       let threadMailboxName = mailboxName;
       for (const candidate of [
         "[Gmail]/All Mail",
@@ -918,8 +946,6 @@ export async function getThreadMessages(
         }
       }
 
-      // Prefer server-provided thread id when available (OBJECTID THREADID or Gmail X-GM-THRID).
-      // This is the most reliable way to get the full conversation, including Sent items.
       if (seedThreadId) {
         try {
           const addressText = (v: unknown) => {
@@ -1282,7 +1308,6 @@ export async function getThreadMessages(
         const base = (seedInReplyTo || seedMessageId || "").trim();
         if (!base) return "";
         try {
-          // Search parent by Message-Id in the broadest mailbox.
           if (threadMailboxName !== mailboxName) {
             await client.mailboxOpen(threadMailboxName, { readOnly: true });
           }
@@ -1356,7 +1381,6 @@ export async function getThreadMessages(
         threadMailboxName === mailboxName ? [uid] : [],
       );
 
-      // Ensure searches happen in the broad mailbox when available.
       if (threadMailboxName !== mailboxName) {
         try {
           await client.mailboxOpen(threadMailboxName, { readOnly: true });
@@ -1805,8 +1829,6 @@ export async function markThreadAsSeen(id: string, mailboxName = "INBOX") {
 
       if (seedThreadId) {
         try {
-          // Prefer searching only by threadId. Some servers may not support
-          // combining threadId with other criteria like seen/unseen.
           const found = await client.search(
             { threadId: seedThreadId } as any,
             { uid: true } as any,

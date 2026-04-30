@@ -6,6 +6,7 @@ import { getSession } from "@/lib/session";
  * Called before user navigates to the message detail view.
  * Response is minimal - just needs to trigger the cache population.
  */
+// route.ts (prefetch) - Version optimisée
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const messageId = searchParams.get("id");
@@ -21,10 +22,21 @@ export async function GET(request: Request) {
       return Response.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Simply load the message - this populates the cache in getMessage()
-    await getMessage(messageId, mailbox);
+    // Utiliser Next.js cache pour éviter les appels répétés
+    const cachedMessage = await getMessage(messageId, mailbox);
 
-    return Response.json({ ok: true, cached: true });
+    // Réponse minimale
+    return Response.json({
+      ok: true,
+      cached: true,
+      // Ne renvoyer que les métadonnées pour le cache
+      meta: {
+        id: cachedMessage.id,
+        subject: cachedMessage.subject,
+        from: cachedMessage.from,
+        date: cachedMessage.date,
+      },
+    });
   } catch (error) {
     console.error("[prefetch] Error:", error);
     return Response.json(
