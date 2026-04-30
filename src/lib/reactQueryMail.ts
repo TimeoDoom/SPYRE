@@ -20,17 +20,19 @@ async function fetchMails({ pageParam = undefined, queryKey }: any) {
 }
 
 export function useMailsInfinite(box = "inbox") {
-  return useInfiniteQuery(["mails", { box }], fetchMails, {
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  return useInfiniteQuery({
+    queryKey: ["mails", { box }],
+    queryFn: fetchMails,
+    getNextPageParam: (last: any) => last.nextCursor ?? undefined,
     staleTime: 1000 * 60 * 2, // 2 minutes
     cacheTime: 1000 * 60 * 60 * 24,
-  });
+  } as any);
 }
 
 export function useMail(id: string | undefined, mailbox = "INBOX") {
-  return useQuery(
-    ["mail", id, { mailbox }],
-    async () => {
+  return useQuery({
+    queryKey: ["mail", id, { mailbox }],
+    queryFn: async () => {
       if (!id) return null;
       const url = new URL(`/api/mail/get`, location.origin);
       url.searchParams.set("id", id);
@@ -40,18 +42,16 @@ export function useMail(id: string | undefined, mailbox = "INBOX") {
       const data = await res.json();
       return data.message;
     },
-    {
-      enabled: Boolean(id),
-      staleTime: 1000 * 60 * 60, // 1h for opened mail
-    },
-  );
+    enabled: Boolean(id),
+    staleTime: 1000 * 60 * 60, // 1h for opened mail
+  });
 }
 
 export function useMarkAsRead() {
   const qc = useQueryClient();
 
-  return useMutation(
-    async ({ id, mailbox }: { id: string; mailbox?: string }) => {
+  return useMutation({
+    mutationFn: async ({ id, mailbox }: { id: string; mailbox?: string }) => {
       const res = await fetch(`/api/mail/mark-read`, {
         method: "POST",
         credentials: "include",
@@ -61,31 +61,29 @@ export function useMarkAsRead() {
       if (!res.ok) throw new Error("Mark read failed");
       return res.json();
     },
-    {
-      onMutate: async ({ id }) => {
-        await qc.cancelQueries(["mails"]);
-        const previous = qc.getQueryData(["mails"]);
-        // optimistic update: set read=true in cached pages
-        qc.setQueryData(["mails"], (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages?.map((p: any) => ({
-              ...p,
-              items: p.items.map((m: any) =>
-                m.id === id ? { ...m, read: true } : m,
-              ),
-            })),
-          };
-        });
-        return { previous };
-      },
-      onError: (_err, _vars, context: any) => {
-        if (context?.previous) qc.setQueryData(["mails"], context.previous);
-      },
-      onSettled: () => {
-        qc.invalidateQueries(["mails"]);
-      },
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["mails"] });
+      const previous = qc.getQueryData(["mails"]);
+      // optimistic update: set read=true in cached pages
+      qc.setQueryData(["mails"], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages?.map((p: any) => ({
+            ...p,
+            items: p.items.map((m: any) =>
+              m.id === id ? { ...m, read: true } : m,
+            ),
+          })),
+        };
+      });
+      return { previous };
     },
-  );
+    onError: (_err, _vars, context: any) => {
+      if (context?.previous) qc.setQueryData(["mails"], context.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["mails"] });
+    },
+  });
 }
