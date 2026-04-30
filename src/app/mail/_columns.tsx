@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import EmailDetail from "@/app/components/EmailDetail";
-import EmailListSidebar from "@/app/components/EmailListSidebar";
+import { EmailListWithPrefetch } from "@/app/components/EmailListWithPrefetch";
 import MailContentCarousel from "@/app/components/MailContentCarousel";
 import SpacesRail from "@/app/components/SpacesRail";
 import SplitView from "@/app/components/SplitView";
@@ -178,7 +178,7 @@ export default function MailColumns(props: Props) {
 
       <div className="relative h-full shrink-0">
         {listVisible ? (
-          <EmailListSidebar
+          <EmailListWithPrefetch
             emails={props.emails}
             spaceName={props.spaceName}
             accentColor={props.accentColor}
