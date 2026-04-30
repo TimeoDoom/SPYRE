@@ -8,13 +8,9 @@ import {
   useMemo,
   useRef,
   useState,
-  useCallback,
-  memo,
 } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
 import { SpaceIcon } from "./SpaceIcon";
-import { PrefetchEmail } from "./PrefetchEmail";
 import type { Space } from "@/lib/session";
 import RichTextEditor from "./RichTextEditor";
 import { useLanguage } from "@/app/components/LanguageProvider";
@@ -47,8 +43,8 @@ interface EmailListSidebarProps {
   buttonBgColor?: string;
   mailFontSize?: number;
 }
-      <div className="email-list-emails">
-        {emails.length === 0 ? (
+
+export default function EmailListSidebar({
   emails,
   embedded,
   spaceName: _spaceName,
@@ -62,201 +58,409 @@ interface EmailListSidebarProps {
   const searchParams = useSearchParams();
   const language = useLanguage();
   const currentSpaceId = searchParams.get("space") || "principal";
-        ) : (
-          // Virtualized list for large mailboxes
-          (() => {
-            const parentRef = useRef<HTMLDivElement | null>(null);
-            const flattened = emails;
+  const currentEmailId = searchParams.get("email");
+  const currentEmailId2 = searchParams.get("email2");
+  const currentBox = searchParams.get("box") || "inbox";
+  const currentQuery = searchParams.get("q") || "";
 
-            const rowVirtualizer = useVirtualizer({
-              count: flattened.length,
-              getScrollElement: () => parentRef.current,
-              estimateSize: () => 84,
-              overscan: 6,
-            });
+  const buildMailHref = (emailId?: string | null, emailId2?: string | null) => {
+    const base = `/mail?space=${encodeURIComponent(currentSpaceId)}&box=${encodeURIComponent(currentBox)}${currentQuery ? `&q=${encodeURIComponent(currentQuery)}` : ""}`;
+    const p = emailId ? `&email=${encodeURIComponent(emailId)}` : "";
+    const s = emailId2 ? `&email2=${encodeURIComponent(emailId2)}` : "";
+    return `${base}${p}${s}`;
+  };
 
-            const MailRow = memo(function MailRow({ index }: { index: number }) {
-              const email = flattened[index];
-              const isActive =
-                currentEmailId === email.id || currentEmailId2 === email.id;
-              const threadUnreadCount =
-                typeof (email as any).threadUnreadCount === "number"
-                  ? Math.max(0, Math.floor((email as any).threadUnreadCount))
-                  : 0;
-              const showUnreadBadge = threadUnreadCount > 0;
+  const ui = useMemo(() => {
+    if (language === "en") {
+      return {
+        favorites: "Favorites",
+        boxInbox: "Inbox",
+        boxDrafts: "Drafts",
+        boxSpam: "Spam",
+        boxTrash: "Trash",
+        close: "Close",
+        newMessage: "New message",
+        spacePrefix: "Space: ",
+        to: "To",
+        cc: "Cc",
+        subject: "Subject",
+        optional: "(optional)",
+        message: "Message",
+        messagePlaceholder: "Your message…",
+        attachments: "Attachments",
+        removeAll: "Remove all",
+        remove: "Remove",
+        attachment: "Attachment",
+        noFile: "No files",
+        filesAdded: (n: number) => `${n} file${n > 1 ? "s" : ""} added`,
+        filesSelected: (n: number) => `${n} file${n > 1 ? "s" : ""} selected`,
+        cancel: "Cancel",
+        saveDraft: "Save draft",
+        sending: "Sending…",
+        send: "Send",
+        errorSend: "Send failed",
+        errorNoAttachmentReceived: "The server did not receive any attachment.",
+        sentWithAttachments: (n: number) =>
+          `Email sent${n ? ` with ${n} attachment${n > 1 ? "s" : ""}` : ""}`,
+        noEmailsTitle: "No emails",
+        noEmailsSubtitle: "Nothing to show for this Space.",
+        favoriteAdd: "Add to favorites",
+        favoriteRemove: "Remove from favorites",
+        noticeAttachmentRemoved: "Attachment removed",
+        noticeAttachmentsRemoved: "Attachments removed",
+        noticeDraftSaved: "Draft saved",
+        errorDraftSave: "Could not save draft",
+        errorNoRecipient: "Add at least one recipient",
+        errorMultipleRecipients: "Only one recipient is supported for now",
+        errorEmptyMessage: "Write a message or add an attachment",
+        write: "Write",
+        writeAria: "Write a message",
+        archive: "Archive",
+        delete: "Delete",
+        spam: "Mark as spam",
+        moveTo: "Move to...",
+        moveTitle: "MOVE TO",
+      } as const;
+    }
+    return {
+      favorites: "Favoris",
+      boxInbox: "Réception",
+      boxDrafts: "Brouillons",
+      boxSpam: "Spam",
+      boxTrash: "Corbeille",
+      close: "Fermer",
+      newMessage: "Nouveau message",
+      spacePrefix: "Space: ",
+      to: "À",
+      cc: "Cc",
+      subject: "Sujet",
+      optional: "(optionnel)",
+      message: "Message",
+      messagePlaceholder: "Votre message…",
+      attachments: "Pièces jointes",
+      removeAll: "Retirer tout",
+      remove: "Retirer",
+      attachment: "Pièce jointe",
+      noFile: "Aucun fichier",
+      filesAdded: (n: number) =>
+        `${n} fichier${n > 1 ? "s" : ""} ajouté${n > 1 ? "s" : ""}`,
+      filesSelected: (n: number) =>
+        `${n} fichier${n > 1 ? "s" : ""} sélectionné${n > 1 ? "s" : ""}`,
+      cancel: "Annuler",
+      saveDraft: "Enregistrer brouillon",
+      sending: "Envoi…",
+      send: "Envoyer",
+      errorSend: "Envoi impossible",
+      errorNoAttachmentReceived: "Le serveur n'a reçu aucune pièce jointe.",
+      sentWithAttachments: (n: number) =>
+        `Email envoyé${n ? ` avec ${n} pièce${n > 1 ? "s" : ""} jointe${n > 1 ? "s" : ""}` : ""}`,
+      noEmailsTitle: "Aucun email",
+      noEmailsSubtitle: "Rien à afficher pour ce Space.",
+      favoriteAdd: "Ajouter aux favoris",
+      favoriteRemove: "Retirer des favoris",
+      noticeAttachmentRemoved: "Pièce jointe retirée",
+      noticeAttachmentsRemoved: "Pièces jointes retirées",
+      noticeDraftSaved: "Brouillon enregistré",
+      errorDraftSave: "Enregistrement du brouillon impossible",
+      errorNoRecipient: "Ajoute au moins un destinataire",
+      errorMultipleRecipients:
+        "Un seul destinataire est supporté pour l'instant",
+      errorEmptyMessage: "Écris un message ou ajoute une pièce jointe",
+      write: "Écrire",
+      writeAria: "Écrire un message",
+      archive: "Archiver",
+      delete: "Supprimer",
+      spam: "Mettre en spam",
+      moveTo: "Déplacer vers...",
+      moveTitle: "DÉPLACER VERS",
+    } as const;
+  }, [language]);
 
-              return (
-                <div
-                  key={email.id}
-                  style={{ position: "absolute", width: "100%", transform: `translateY(${rowVirtualizer.getVirtualItems()[index]?.start ?? 0}px)` }}
-                >
-                  <PrefetchEmail emailId={email.id} mailbox="INBOX">
-                    <Link
-                      href={buildMailHref(email.id, null)}
-                      prefetch={false}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(
-                          "application/x-mailapp-email-id",
-                          email.id,
-                        );
-                        e.dataTransfer.setData("text/plain", email.id);
-                        e.dataTransfer.effectAllowed = "move";
-                      }}
-                      className={`email-item${isActive ? " active" : ""}`}
-                    >
-                      <div className="email-item-avatar">
-                        {(() => {
-                          const fromEmail = (email.from || "").includes("<")
-                            ? (email.from || "")
-                                .split("<")[1]
-                                .replace(">", "")
-                                .trim()
-                            : (email.from || "").trim();
-                          const contact = contacts.find(
-                            (c) =>
-                              c.email.toLowerCase() === fromEmail.toLowerCase(),
-                          );
-                          if (contact?.avatarUrl) {
-                            return <img src={contact.avatarUrl} alt="" />;
-                          }
-                          return (
-                            <div className="email-item-avatar-placeholder">
-                              {(email.from || "?")[0].toUpperCase()}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      <div className="email-item-content">
-                        <div className="email-item-header">
-                          <span className="email-item-sender">
-                            {(email.from || "").includes("<")
-                              ? (email.from || "")
-                                  .split("<")[0]
-                                  .trim()
-                                  .replace(/^\"|\"$/g, "")
-                              : (email.from || "").split("@")[0]}
-                          </span>
-                          <div
-                            className="email-item-header-actions"
-                            style={{ position: "relative" }}
-                          >
-                            <button
-                              type="button"
-                              className="email-item-dots-btn"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOpenMenuId(
-                                  openMenuId === email.id ? null : email.id,
-                                );
-                              }}
-                            >
-                              <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <circle cx="12" cy="12" r="1" />
-                                <circle cx="19" cy="12" r="1" />
-                                <circle cx="5" cy="12" r="1" />
-                              </svg>
-                            </button>
-                            {showUnreadBadge && (
-                              <div className="email-item-unread-badge">
-                                {threadUnreadCount}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div
-                          className="email-item-subject"
-                          style={{
-                            fontWeight: 700,
-                            ...(mailFontSize
-                              ? { fontSize: `${mailFontSize}px` }
-                              : {}),
-                          }}
-                        >
-                          {email.subject || t(language, "mail.noSubject")}
-                        </div>
-                        <div className="email-item-snippet">{email.snippet}</div>
-                        <div className="email-item-footer">
-                          <span className="email-item-date">{email.date}</span>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="email-item-favorite-toggle"
-                            style={{
-                              color: contacts.find(
-                                (c) => c.email === extractAddress(email.from),
-                              )?.favorite
-                                ? "#f59e0b"
-                                : "#d1d5db",
-                              fontSize: "20px",
-                              cursor: "pointer",
-                            }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              void toggleFavoriteSender(email.from);
-                            }}
-                          >
-                            {contacts.find(
-                              (c) => c.email === extractAddress(email.from),
-                            )?.favorite ? (
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="#f59e0b"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                              </svg>
-                            ) : (
-                              <svg
-                                width="16"
-                                height="16"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                              </svg>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </PrefetchEmail>
-                </div>
-              );
-            });
+  const [isMounted, setIsMounted] = useState(false);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [brokenAvatarEmails, setBrokenAvatarEmails] = useState<
+    Record<string, boolean>
+  >({});
+  const [isSending, setIsSending] = useState(false);
+  const [composeError, setComposeError] = useState("");
+  const [composeNotice, setComposeNotice] = useState("");
+  const [, setDraftIsSaved] = useState(false);
+  const [composeToRecipients, setComposeToRecipients] = useState<
+    Array<{ email: string; name?: string }>
+  >([]);
+  const [composeToDraft, setComposeToDraft] = useState("");
+  const [composeCcRecipients, setComposeCcRecipients] = useState<
+    Array<{ email: string; name?: string }>
+  >([]);
+  const [composeCcDraft, setComposeCcDraft] = useState("");
+  const [composeBccRecipients, setComposeBccRecipients] = useState<
+    Array<{ email: string; name?: string }>
+  >([]);
+  const [composeBccDraft, setComposeBccDraft] = useState("");
+  const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeMessage, setComposeMessage] = useState<{
+    html: string;
+    text: string;
+  }>({
+    html: "",
+    text: "",
+  });
+  const [composeAttachments, setComposeAttachments] = useState<File[]>([]);
+  const [showTextFormatting, setShowTextFormatting] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showSpacesMenuId, setShowSpacesMenuId] = useState<string | null>(null);
+  const toInputRef = useRef<HTMLInputElement>(null);
+  const ccInputRef = useRef<HTMLInputElement>(null);
+  const bccInputRef = useRef<HTMLInputElement>(null);
+  const composeFileRef = useRef<HTMLInputElement>(null);
 
-            return (
-              <div ref={parentRef} style={{ height: "100%", overflow: "auto", position: "relative" }}>
-                <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
-                  {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-                    const index = virtualItem.index;
-                    return (
-                      <div key={index} style={{ position: "absolute", top: virtualItem.start, left: 0, width: "100%" }}>
-                        <MailRow index={index} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()
-        )}
+  const favoriteContacts = useMemo(
+    () => contacts.filter((c) => c.favorite),
+    [contacts],
+  );
+
+  const markAvatarBroken = (emailKey: string) => {
+    setBrokenAvatarEmails((prev) => ({ ...prev, [emailKey]: true }));
+  };
+
+  const extractAddress = (rawFrom: string): string => {
+    const m = (rawFrom || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+    return (m?.[0] || "").trim().toLowerCase();
+  };
+
+  const toggleFavoriteSender = async (from: string) => {
+    const senderEmail = extractAddress(from);
+    if (!senderEmail) return;
+    const current = contacts.find((c) => c.email === senderEmail);
+    const nextFavorite = !Boolean(current?.favorite);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ email: senderEmail, favorite: nextFavorite }),
+      });
+      const data = (await res.json().catch(() => null)) as any;
+      if (!res.ok || !data?.ok) {
+        setComposeError(
+          typeof data?.error === "string" ? data.error : ui.errorSend,
+        );
+        return;
+      }
+      setContacts(Array.isArray(data.contacts) ? data.contacts : contacts);
+      window.dispatchEvent(new CustomEvent("mailapp:contacts-changed"));
+    } catch {
+      setComposeError(ui.errorSend);
+    }
+  };
+
+  const addRecipient = (email: string, type: "to" | "cc" | "bcc") => {
+    if (!email.trim()) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) return;
+
+    const recipient = { email: email.trim() };
+
+    if (type === "to") {
+      if (!composeToRecipients.some((r) => r.email === recipient.email)) {
+        setComposeToRecipients((prev) => [...prev, recipient]);
+      }
+      setComposeToDraft("");
+    } else if (type === "cc") {
+      if (!composeCcRecipients.some((r) => r.email === recipient.email)) {
+        setComposeCcRecipients((prev) => [...prev, recipient]);
+      }
+      setComposeCcDraft("");
+    } else if (type === "bcc") {
+      if (!composeBccRecipients.some((r) => r.email === recipient.email)) {
+        setComposeBccRecipients((prev) => [...prev, recipient]);
+      }
+      setComposeBccDraft("");
+    }
+    setDraftIsSaved(false);
+  };
+
+  const removeRecipient = (email: string, type: "to" | "cc" | "bcc") => {
+    if (type === "to") {
+      setComposeToRecipients((prev) => prev.filter((r) => r.email !== email));
+    } else if (type === "cc") {
+      setComposeCcRecipients((prev) => prev.filter((r) => r.email !== email));
+    } else if (type === "bcc") {
+      setComposeBccRecipients((prev) => prev.filter((r) => r.email !== email));
+    }
+    setDraftIsSaved(false);
+  };
+
+  const composeToContact = (email: string) => {
+    setComposeToRecipients([{ email }]);
+    setComposeError("");
+    setComposeNotice("");
+    setDraftIsSaved(false);
+    setIsComposeOpen(true);
+  };
+
+  useEffect(() => {
+    setIsMounted(true);
+    const loadContacts = async () => {
+      try {
+        const res = await fetch("/api/contacts", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setContacts(data.contacts || []);
+        }
+      } catch {}
+    };
+
+    const loadSpaces = async () => {
+      try {
+        const res = await fetch("/api/spaces", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          setSpaces(data.spaces || []);
+        }
+      } catch {}
+    };
+
+    const onContactsChanged = () => loadContacts();
+    const onSpacesChanged = () => loadSpaces();
+
+    loadContacts();
+    loadSpaces();
+    window.addEventListener("mailapp:contacts-changed", onContactsChanged);
+    window.addEventListener("mailapp:spaces-changed", onSpacesChanged);
+    return () => {
+      window.removeEventListener("mailapp:contacts-changed", onContactsChanged);
+      window.removeEventListener("mailapp:spaces-changed", onSpacesChanged);
+    };
+  }, []);
+
+  const formatFileSize = (size: number) => {
+    if (!Number.isFinite(size) || size <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let val = size;
+    let i = 0;
+    while (val >= 1024 && i < units.length - 1) {
+      val /= 1024;
+      i += 1;
+    }
+    const digits = i === 0 ? 0 : i === 1 ? 0 : 1;
+    return `${val.toFixed(digits)} ${units[i]}`;
+  };
+
+  const openSearch = () => {
+    window.dispatchEvent(new CustomEvent("mailapp:open-search"));
+  };
+
+  const handleAttachFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const next = Array.from(files);
+    setComposeAttachments((prev) => [...prev, ...next]);
+    setComposeNotice(ui.filesAdded(next.length));
+    setComposeError("");
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setComposeAttachments((prev) => {
+      const next = prev.slice();
+      next.splice(index, 1);
+      return next;
+    });
+    setComposeNotice(ui.noticeAttachmentRemoved);
+  };
+
+  const handleRemoveAllAttachments = () => {
+    setComposeAttachments([]);
+    setComposeNotice(ui.noticeAttachmentsRemoved);
+  };
+
+  const handleSend = async () => {
+    if (isSending) return;
+    setComposeError("");
+    setComposeNotice("");
+
+    const toList = composeToRecipients.map((r) => r.email).filter(Boolean);
+    if (toList.length === 0) {
+      setComposeError(ui.errorNoRecipient);
+      return;
+    }
+    if (toList.length > 1) {
+      setComposeError(ui.errorMultipleRecipients);
+      return;
+    }
+
+    const ccList = composeCcRecipients.map((r) => r.email).filter(Boolean);
+    const bccList = composeBccRecipients.map((r) => r.email).filter(Boolean);
+    const bodyText = composeMessage.text.trim();
+    const bodyHtml = composeMessage.html.trim();
+    const hasAttachments = composeAttachments.length > 0;
+
+    if (!bodyText && !hasAttachments) {
+      setComposeError(ui.errorEmptyMessage);
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      if (hasAttachments) {
+        const formData = new FormData();
+        formData.append("to", toList[0]);
+        if (ccList.length) formData.append("cc", ccList.join(", "));
+        if (bccList.length) formData.append("bcc", bccList.join(", "));
+        if (composeSubject.trim())
+          formData.append("subject", composeSubject.trim());
+        formData.append("body", bodyText);
+        if (bodyHtml) formData.append("bodyHtml", bodyHtml);
+        composeAttachments.forEach((f) => formData.append("files", f));
+
+        const res = await fetch("/api/mail/send", {
+          method: "POST",
+          credentials: "include",
+          headers: { Accept: "application/json" },
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || ui.errorSend);
+        }
+
+        alert(ui.sentWithAttachments(composeAttachments.length));
+      } else {
+        const res = await fetch("/api/mail/send", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            to: toList[0],
+            cc: ccList.join(", "),
+            bcc: bccList.join(", "),
+            subject: composeSubject.trim(),
+            body: bodyText,
+            bodyHtml: bodyHtml || undefined,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || ui.errorSend);
+        }
+      }
+
+      setComposeToRecipients([]);
+      setComposeCcRecipients([]);
+      setComposeBccRecipients([]);
+      setComposeToDraft("");
+      setComposeCcDraft("");
       setComposeBccDraft("");
       setComposeSubject("");
       setComposeMessage({ html: "", text: "" });
@@ -486,153 +690,149 @@ interface EmailListSidebarProps {
             const showUnreadBadge = threadUnreadCount > 0;
             return (
               <div key={email.id} style={{ position: "relative" }}>
-                <PrefetchEmail emailId={email.id} mailbox="INBOX">
-                  <Link
-                    href={buildMailHref(email.id, null)}
-                    prefetch={false}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        "application/x-mailapp-email-id",
-                        email.id,
+                <Link
+                  href={buildMailHref(email.id, null)}
+                  prefetch={false}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(
+                      "application/x-mailapp-email-id",
+                      email.id,
+                    );
+                    e.dataTransfer.setData("text/plain", email.id);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  className={`email-item${isActive ? " active" : ""}`}
+                >
+                  <div className="email-item-avatar">
+                    {(() => {
+                      const fromEmail = (email.from || "").includes("<")
+                        ? (email.from || "")
+                            .split("<")[1]
+                            .replace(">", "")
+                            .trim()
+                        : (email.from || "").trim();
+                      const contact = contacts.find(
+                        (c) =>
+                          c.email.toLowerCase() === fromEmail.toLowerCase(),
                       );
-                      e.dataTransfer.setData("text/plain", email.id);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    className={`email-item${isActive ? " active" : ""}`}
-                  >
-                    <div className="email-item-avatar">
-                      {(() => {
-                        const fromEmail = (email.from || "").includes("<")
-                          ? (email.from || "")
-                              .split("<")[1]
-                              .replace(">", "")
-                              .trim()
-                          : (email.from || "").trim();
-                        const contact = contacts.find(
-                          (c) =>
-                            c.email.toLowerCase() === fromEmail.toLowerCase(),
-                        );
-                        if (contact?.avatarUrl) {
-                          return <img src={contact.avatarUrl} alt="" />;
-                        }
-                        return (
-                          <div className="email-item-avatar-placeholder">
-                            {(email.from || "?")[0].toUpperCase()}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="email-item-content">
-                      <div className="email-item-header">
-                        <span className="email-item-sender">
-                          {(email.from || "").includes("<")
-                            ? (email.from || "")
-                                .split("<")[0]
-                                .trim()
-                                .replace(/^"|"$/g, "")
-                            : (email.from || "").split("@")[0]}
-                        </span>
-                        <div
-                          className="email-item-header-actions"
-                          style={{ position: "relative" }}
-                        >
-                          <button
-                            type="button"
-                            className="email-item-dots-btn"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setOpenMenuId(
-                                openMenuId === email.id ? null : email.id,
-                              );
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                            >
-                              <circle cx="12" cy="12" r="1" />
-                              <circle cx="19" cy="12" r="1" />
-                              <circle cx="5" cy="12" r="1" />
-                            </svg>
-                          </button>
-                          {showUnreadBadge && (
-                            <div className="email-item-unread-badge">
-                              {threadUnreadCount}
-                            </div>
-                          )}
+                      if (contact?.avatarUrl) {
+                        return <img src={contact.avatarUrl} alt="" />;
+                      }
+                      return (
+                        <div className="email-item-avatar-placeholder">
+                          {(email.from || "?")[0].toUpperCase()}
                         </div>
-                      </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="email-item-content">
+                    <div className="email-item-header">
+                      <span className="email-item-sender">
+                        {(email.from || "").includes("<")
+                          ? (email.from || "")
+                              .split("<")[0]
+                              .trim()
+                              .replace(/^"|"$/g, "")
+                          : (email.from || "").split("@")[0]}
+                      </span>
                       <div
-                        className="email-item-subject"
-                        style={{
-                          fontWeight: 700,
-                          ...(mailFontSize
-                            ? { fontSize: `${mailFontSize}px` }
-                            : {}),
-                        }}
+                        className="email-item-header-actions"
+                        style={{ position: "relative" }}
                       >
-                        {email.subject || t(language, "mail.noSubject")}
-                      </div>
-                      <div className="email-item-snippet">{email.snippet}</div>
-                      <div className="email-item-footer">
-                        <span className="email-item-date">{email.date}</span>
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          className="email-item-favorite-toggle"
-                          style={{
-                            color: contacts.find(
-                              (c) => c.email === extractAddress(email.from),
-                            )?.favorite
-                              ? "#f59e0b"
-                              : "#d1d5db",
-                            fontSize: "20px",
-                            cursor: "pointer",
-                          }}
+                        <button
+                          type="button"
+                          className="email-item-dots-btn"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            void toggleFavoriteSender(email.from);
+                            setOpenMenuId(
+                              openMenuId === email.id ? null : email.id,
+                            );
                           }}
                         >
-                          {contacts.find(
-                            (c) => c.email === extractAddress(email.from),
-                          )?.favorite ? (
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="#f59e0b"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                            </svg>
-                          ) : (
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                            </svg>
-                          )}
-                        </span>
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <circle cx="12" cy="12" r="1" />
+                            <circle cx="19" cy="12" r="1" />
+                            <circle cx="5" cy="12" r="1" />
+                          </svg>
+                        </button>
+                        {showUnreadBadge && (
+                          <div className="email-item-unread-badge">
+                            {threadUnreadCount}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </Link>
-                </PrefetchEmail>
+                    <div
+                      className="email-item-subject"
+                      style={{
+                        fontWeight: 700,
+                        ...(mailFontSize
+                          ? { fontSize: `${mailFontSize}px` }
+                          : {}),
+                      }}
+                    >
+                      {email.subject || t(language, "mail.noSubject")}
+                    </div>
+                    <div className="email-item-snippet">{email.snippet}</div>
+                    <div className="email-item-footer">
+                      <span className="email-item-date">{email.date}</span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="email-item-favorite-toggle"
+                        style={{
+                          color: contacts.find(
+                            (c) => c.email === extractAddress(email.from),
+                          )?.favorite
+                            ? "#f59e0b"
+                            : "#d1d5db",
+                          fontSize: "20px",
+                          cursor: "pointer",
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void toggleFavoriteSender(email.from);
+                        }}
+                      >
+                        {contacts.find(
+                          (c) => c.email === extractAddress(email.from),
+                        )?.favorite
+                          ? <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="#f59e0b"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                      </svg>
+                          : <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                      </svg>}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
 
                 {openMenuId === email.id && (
                   <>
