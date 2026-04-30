@@ -21,7 +21,7 @@ export function useInitialPrefetch({
 
     // Prefetch only the FIRST 2 emails with long spacing to avoid connection pool exhaustion
     const firstBatch = emailIds.slice(0, 2);
-    
+
     firstBatch.forEach((id, index) => {
       // Very conservative staggering (500ms between requests)
       const timer = setTimeout(() => {

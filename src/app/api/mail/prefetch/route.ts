@@ -11,7 +11,10 @@ const MAX_CONCURRENT_PREFETCHES = 2;
 const prefetchQueue: Array<() => Promise<any>> = [];
 
 async function processPrefetchQueue() {
-  while (prefetchQueue.length > 0 && activePrefetches < MAX_CONCURRENT_PREFETCHES) {
+  while (
+    prefetchQueue.length > 0 &&
+    activePrefetches < MAX_CONCURRENT_PREFETCHES
+  ) {
     const work = prefetchQueue.shift();
     if (!work) break;
     activePrefetches++;
