@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -16,7 +16,10 @@ export async function GET(
   }
 
   if (!prisma) {
-    return NextResponse.json({ error: "Database not available" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Database not available" },
+      { status: 500 },
+    );
   }
 
   const url = new URL(req.url);
@@ -81,7 +84,10 @@ export async function GET(
     return NextResponse.json({ ok: true, message: transformed });
   } catch (error) {
     console.error("[emails/id] Error:", error);
-    return NextResponse.json({ error: "Failed to fetch email" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch email" },
+      { status: 500 },
+    );
   }
 }
 

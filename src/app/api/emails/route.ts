@@ -11,7 +11,10 @@ export async function GET(req: Request) {
   }
 
   if (!prisma) {
-    return NextResponse.json({ error: "Database not available" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Database not available" },
+      { status: 500 },
+    );
   }
 
   const url = new URL(req.url);
@@ -23,9 +26,11 @@ export async function GET(req: Request) {
     const emails = await prisma.emailMetadata.findMany({
       where: {
         folder,
-        ...(before ? { 
-          date: { lt: new Date(before) } 
-        } : {}),
+        ...(before
+          ? {
+              date: { lt: new Date(before) },
+            }
+          : {}),
       },
       orderBy: { date: "desc" },
       take: limit + 1,
@@ -51,9 +56,9 @@ export async function GET(req: Request) {
 
     const hasMore = emails.length > limit;
     const items = hasMore ? emails.slice(0, limit) : emails;
-    
+
     // Transformer pour correspondre à l'API existante
-    const transformed = items.map(email => ({
+    const transformed = items.map((email) => ({
       id: email.uid,
       mailbox: email.folder,
       threadId: email.threadId,
@@ -76,11 +81,14 @@ export async function GET(req: Request) {
     return NextResponse.json({
       items: transformed,
       nextCursor: hasMore
-        ? items[items.length - 1]?.date?.toISOString?.() ?? null
+        ? (items[items.length - 1]?.date?.toISOString?.() ?? null)
         : null,
     });
   } catch (error) {
     console.error("[emails] Error:", error);
-    return NextResponse.json({ error: "Failed to fetch emails" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch emails" },
+      { status: 500 },
+    );
   }
 }
