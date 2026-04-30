@@ -57,6 +57,7 @@ model Contact {
   email              String
   favorite           Boolean  @default(false)
   avatarUrl          String?
+  avatarData         Bytes?
   avatarContentType  String?
   avatarUpdatedAt    DateTime?
   createdAt          DateTime @default(now())

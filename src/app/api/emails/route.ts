@@ -75,7 +75,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       items: transformed,
-      nextCursor: hasMore ? items[items.length - 1]?.id : null,
+      nextCursor: hasMore
+        ? items[items.length - 1]?.date?.toISOString?.() ?? null
+        : null,
     });
   } catch (error) {
     console.error("[emails] Error:", error);

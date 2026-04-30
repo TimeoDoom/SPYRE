@@ -200,7 +200,7 @@ export async function migrateSessionToDb(
       await client.$transaction(
         data.map((s) =>
           client.space.upsert({
-            where: { userId_id: { userId: s.userId, id: s.id } },
+            where: { id: s.id },
             create: s,
             update: {},
           }),

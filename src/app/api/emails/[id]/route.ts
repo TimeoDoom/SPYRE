@@ -1,13 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -19,7 +21,7 @@ export async function GET(
 
   const url = new URL(req.url);
   const folder = url.searchParams.get("folder") || "INBOX";
-  const dbId = `${folder}:${params.id}`;
+  const dbId = `${folder}:${id}`;
 
   try {
     const email = await prisma.emailMetadata.findUnique({
