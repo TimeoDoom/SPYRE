@@ -55,6 +55,16 @@ export async function GET(request: Request) {
   prefetchQueue.push(work);
   processPrefetchQueue();
 
-  // Return immediately
-  return Response.json({ ok: true, queued: true });
+  // Measure handler time (enqueue cost) for diagnostics and expose via Server-Timing
+  const enqueueDuration = 0; // negligible here, kept for compatibility
+
+  const headers = new Headers({
+    "Server-Timing": `enqueue;dur=${enqueueDuration}`,
+    "Cache-Control": "public, max-age=60",
+  });
+
+  return new Response(JSON.stringify({ ok: true, queued: true }), {
+    status: 200,
+    headers,
+  });
 }

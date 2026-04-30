@@ -17,28 +17,19 @@ export function useInitialPrefetch({
   batchSize = 5,
 }: UseInitialPrefetchProps) {
   useEffect(() => {
-    if (!emailIds.length) return;
+      if (!emailIds.length) return;
 
-    // Prefetch only the FIRST 2 emails with long spacing to avoid connection pool exhaustion
-    const firstBatch = emailIds.slice(0, 2);
+      const firstBatch = emailIds.slice(0, 2);
 
-    firstBatch.forEach((id, index) => {
-      // Very conservative staggering (500ms between requests)
-      const timer = setTimeout(() => {
-        const params = new URLSearchParams({ id, mailbox });
-        fetch(`/api/mail/prefetch?${params}`, {
-          method: "GET",
-          priority: "low",
-          signal: AbortSignal.timeout(10000), // 10 second timeout per request
-        }).catch(() => {
-          // Silently fail - prefetch is optional
-        });
-      }, index * 500);
+      firstBatch.forEach((id, index) => {
+        const timer = setTimeout(() => {
+          // Use shared schedulePrefetch helper to dedupe and defer work
+          import("@/lib/prefetchClient").then(({ schedulePrefetch }) => {
+            schedulePrefetch(id, mailbox);
+          });
+        }, index * 500);
 
-      return () => clearTimeout(timer);
-    });
-
-    // Don't prefetch remaining emails on mount to avoid connection pool issues
-    // They will be prefetched on-demand via hover/focus instead
-  }, [emailIds, mailbox, batchSize]);
+        return () => clearTimeout(timer);
+      });
+    }, [emailIds, mailbox, batchSize]);
 }

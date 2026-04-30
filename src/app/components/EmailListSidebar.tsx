@@ -15,6 +15,7 @@ import type { Space } from "@/lib/session";
 import RichTextEditor from "./RichTextEditor";
 import { useLanguage } from "@/app/components/LanguageProvider";
 import { t } from "@/lib/i18n";
+import { schedulePrefetch } from "@/lib/prefetchClient";
 
 type Contact = {
   email: string;
@@ -369,14 +370,8 @@ export default function EmailListSidebar({
 
     router.prefetch(buildMailHref(id, null));
 
-    const params = new URLSearchParams({ id, mailbox });
-    fetch(`/api/mail/prefetch?${params.toString()}`, {
-      method: "GET",
-      credentials: "include",
-      signal: AbortSignal.timeout(12000), // 12 second timeout to prevent hanging
-    }).catch(() => {
-      // Optimization only - prefetch is optional, don't fail silently if timeout
-    });
+    // Use shared schedulePrefetch to dedupe and defer work
+    schedulePrefetch(id, mailbox);
   };
 
   const handleAttachFiles = (files: FileList | null) => {
